@@ -27,7 +27,7 @@ detector=htm.handDetector(maxHands=1,detectionCon=0.85,trackCon=0.8)
 
 # -------------------- Audio --------------------
 devices=AudioUtilities.GetSpeakers()
-interface=devices.Activate(IAudioEndpointVolume._iid_,CLSCTX_ALL,None)
+interface=devices.Activate(IAudioEndpointVolume.iid,CLSCTX_ALL,None)
 volume=cast(interface,POINTER(IAudioEndpointVolume))
 volRange=volume.GetVolumeRange()
 minVol=volRange[0]
@@ -39,6 +39,9 @@ system_mode="NORMAL"
 profile=1
 macro_start_time=0
 profile_msg_time=0
+
+# 🔥 NEW: click control
+click_ready = True
 
 # -------------------- Main Loop --------------------
 while True:
@@ -81,6 +84,22 @@ while True:
 
             putText(img,f"CONTROL | PROFILE {profile}",(80,100),(0,255,0))
 
+            # 🔥 PINCH CLICK (NEW)
+            x1,y1=lmList[4][1],lmList[4][2]
+            x2,y2=lmList[8][1],lmList[8][2]
+            length=math.hypot(x2-x1,y2-y1)
+
+            # Draw pinch line
+            cv2.line(img,(x1,y1),(x2,y2),(255,0,255),2)
+
+            if length < 30 and click_ready:
+                pyautogui.click()
+                click_ready = False
+                putText(img,"CLICK",(200,200),(0,255,0))
+
+            if length > 50:
+                click_ready = True
+
             # Cursor (Open Palm)
             if fingers==[1,1,1,1,1]:
 
@@ -101,18 +120,14 @@ while True:
                 pyautogui.scroll(-300)
                 dot_color=(0,255,0)
 
-            # Volume Control
-            elif fingers==[1,1,0,0,0]:
-
-                x1,y1=lmList[4][1],lmList[4][2]
-                x2,y2=lmList[8][1],lmList[8][2]
+            # Volume Control (ONLY when slightly apart)
+            elif fingers==[1,1,0,0,0] and length > 40:
 
                 cv2.circle(img,(x1,y1),10,(255,0,255),cv2.FILLED)
                 cv2.circle(img,(x2,y2),10,(255,0,255),cv2.FILLED)
-                cv2.line(img,(x1,y1),(x2,y2),(255,0,255),3)
 
                 length=math.hypot(x2-x1,y2-y1)
-                vol=np.interp(length,[30,200],[minVol,maxVol])
+                vol=np.interp(length,[40,200],[minVol,maxVol])
                 volume.SetMasterVolumeLevel(vol,None)
 
                 dot_color=(0,255,0)
@@ -129,7 +144,7 @@ while True:
             else:
                 putText(img,f"MACRO | PROFILE {profile}",(80,100),(255,0,255))
 
-                # -------- PROFILE 1 --------
+                # PROFILE 1
                 if profile==1:
 
                     if fingers==[1,0,0,0,0]:
@@ -147,7 +162,7 @@ while True:
                     elif fingers==[1,0,0,0,1]:
                         macros.open_notepad()
 
-                # -------- PROFILE 2 --------
+                # PROFILE 2
                 elif profile==2:
 
                     if fingers==[1,0,0,0,0]:
@@ -168,7 +183,7 @@ while True:
         # Indicator Dot
         cv2.circle(img,(x,y),15,dot_color,cv2.FILLED)
 
-    # Profile Switch Message
+    # Profile Message
     if time.time()-profile_msg_time < 1.5:
         putText(img,f"PROFILE {profile} ACTIVATED",(120,200),(255,255,0))
 
